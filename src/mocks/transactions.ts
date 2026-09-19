@@ -1,44 +1,47 @@
 import type { Transaction } from '@/types/transaction'
 
-export const transactions: Transaction[] = [
-  {
-    id: 1,
-    cardNumber: '6037********1234',
-    amount: 1250000,
-    status: 'Successful',
-    transactionDate: '2026-09-18T10:30:00',
-    customerName: 'Ali Ahmadi',
-  },
-  {
-    id: 2,
-    cardNumber: '5892********5678',
-    amount: 850000,
-    status: 'Pending',
-    transactionDate: '2026-09-18T11:15:00',
-    customerName: 'Sara Mohammadi',
-  },
-  {
-    id: 3,
-    cardNumber: '6274********9012',
-    amount: 2300000,
-    status: 'Failed',
-    transactionDate: '2026-09-18T12:45:00',
-    customerName: 'Reza Karimi',
-  },
-  {
-    id: 4,
-    cardNumber: '6037********3456',
-    amount: 450000,
-    status: 'Successful',
-    transactionDate: '2026-09-18T14:20:00',
-    customerName: 'Maryam Ahmadi',
-  },
-  {
-    id: 5,
-    cardNumber: '5892********7890',
-    amount: 1750000,
-    status: 'Successful',
-    transactionDate: '2026-09-19T09:10:00',
-    customerName: 'Mohammad Rezaei',
-  },
+const customers = [
+  'Ali Ahmadi',
+  'Sara Mohammadi',
+  'Reza Karimi',
+  'Maryam Ahmadi',
+  'Mohammad Rezaei',
+  'Nima Hosseini',
+  'Sara Karimi',
+  'Amir Rahimi',
 ]
+
+const statuses: Transaction['status'][] = [
+  'Successful',
+  'Failed',
+  'Pending',
+]
+
+const generateCardNumber = (index: number) => {
+  const prefixes = ['6037', '5892', '6274', '6219']
+
+  const prefix = prefixes[index % prefixes.length]
+
+  return `${prefix}********${String(1000 + index).slice(-4)}`
+}
+
+const generateDate = (index: number) => {
+  const day = 1 + (index % 19)
+  const hour = 8 + (index % 12)
+  const minute = index % 60
+  const second = index % 60
+
+  return `2026-09-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`
+}
+
+export const transactions: Transaction[] = Array.from(
+  { length: 500 },
+  (_, index) => ({
+    id: 10000 + index,
+    cardNumber: generateCardNumber(index),
+    amount: 100000 + (index % 20) * 150000,
+    status: statuses[index % statuses.length],
+    transactionDate: generateDate(index),
+    customerName: customers[index % customers.length],
+  }),
+)
