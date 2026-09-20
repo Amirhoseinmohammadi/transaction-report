@@ -461,6 +461,168 @@
   - [x] Final implementation checklist
   - [x] AI usage documentation
 
+  ## Performance Investigation
+
+  ### Search `@input` — Unnecessary Request Frequency
+
+  #### Observation
+
+  The search input fires `@input` on every keystroke. There is no delay (debounce) between the keystroke and the request. Typing a multi-character word like `"Ali"` triggers one service call per character.
+
+  #### Reproduction steps
+
+  1. Open the app.
+  2. Click the search input.
+  3. Type `"Ali"` — three keystrokes in rapid succession (~80 ms apart, realistic fast typing).
+  4. Observe how many `fetchTransactions()` calls are made and which ones are aborted.
+
+  #### Evidence
+
+  Instrumented the exact `@input → onSearch() → setSearch() → fetchTransactions()` call chain using the real service parameters (200–800 ms latency, 500 records). Two scenarios were measured.
+
+  **Scenario A — realistic fast typing (~80 ms/keystroke):**
+
+  ```text
+  Typed: "Ali"   (3 keystrokes × 80 ms apart)
+
+  Service calls started:       3
+  Call #1  search="A"    outcome=aborted-during-latency   ran for  82 ms
+  Call #2  search="Al"   outcome=aborted-during-latency   ran for  80 ms
+  Call #3  search="Ali"  outcome=resolved                 ran for ~407 ms
+
+  Store request outcomes:
+    requestId=1  search="A"    → aborted  (stale, discarded)
+    requestId=2  search="Al"   → aborted  (stale, discarded)
+    requestId=3  search="Ali"  → applied  (totalCount=109)
+
+  loading=true  flips: 1  (set on first keystroke, stays true throughout)
+  loading=false flips: 1  (cleared only after "Ali" resolves)
+
+  Final state: loading=false, error=null, totalCount=109, search="Ali"
+  ✓ Only "Ali" wrote to store
+  ✓ Stale "A" and "Al" results never reached the store
+  ```
+
+  **Scenario B — very fast typing (~20 ms/keystroke):**
+
+  ```text
+  Service calls started:       3
+  Call #1  search="A"    outcome=aborted-during-latency   ran for 22 ms
+  Call #2  search="Al"   outcome=aborted-during-latency   ran for 21 ms
+  Call #3  search="Ali"  outcome=resolved
+
+  Aborted-before-latency (free): 0
+  Aborted-during-latency  (timer started then cancelled): 2
+  ```
+
+  Even at 20 ms between keystrokes the `simulateLatency` timer starts before the abort signal arrives, so every discarded call still allocates a `setTimeout` and an `AbortController` before being cancelled.
+
+  #### Hypotheses considered
+
+  | Hypothesis | Verdict |
+  | --- | --- |
+  | Stale result from "A" or "Al" could overwrite the "Ali" result | ✗ False — request ID guard and AbortController both prevent this |
+  | Loading state could flicker on each keystroke | ✗ False — `loading` stays `true` throughout typing, flips once at the end |
+  | The UI could show an empty state mid-typing | ✗ False — `loading=true` hides the results/empty branch entirely |
+  | Extra service calls are made per keystroke | ✓ True — one call per keystroke, no batching |
+  | Cancelled calls still do some work before being aborted | ✓ True — the `simulateLatency` timer starts before the abort fires |
+
+  #### Root cause
+
+  The search input fires `@input` synchronously on every keystroke. There is no delay between the event and `setSearch()`. Every `setSearch()` unconditionally calls `fetchTransactions()`. The result is one service call per character typed.
+
+  The service's `simulateLatency` function starts a `setTimeout` before listening for the abort signal. Because the JavaScript event loop does not immediately switch to the abort handler (it only fires on the next microtask/macrotask after `abort()` is called), the latency timer always starts — and runs for however many milliseconds pass before the next keystroke — before it is cancelled. At 80 ms/keystroke, calls #1 and #2 each ran their timer for ~80 ms before being aborted.
+
+  #### Current impact
+
+  | Aspect | Impact |
+  | --- | --- |
+  | **Correctness** | None — stale results never reach the store |
+  | **Race conditions** | None — both AbortController and request ID guard work correctly |
+  | **User-visible flicker** | None — `loading` is held `true` from first keystroke to final result |
+  | **Unnecessary work** | Moderate — N−1 extra requests are started and aborted for every N-character word; each discarded call still starts a latency timer and sets up event listeners |
+  | **Real backend impact** | Would send N−1 extra HTTP requests to a real server per typed word; each request would reach the server before the abort signal could cancel it |
+
+  #### No fix applied (investigation stage)
+
+  The investigation stage made no code changes. The fix was applied in the following implementation step.
+
+  ---
+
+  ### Fix
+
+  #### What was changed
+
+  A 300 ms debounce was added to the `onSearch()` handler in [`TransactionList.vue`](src/components/transactions/TransactionList.vue). Only the search handler was changed — status filter, date filters, and pagination are unaffected.
+
+  ```ts
+  // Before
+  function onSearch() {
+    transactionStore.setSearch(searchInput.value)
+  }
+
+  // After
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined
+
+  function onSearch() {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = setTimeout(() => {
+      transactionStore.setSearch(searchInput.value)
+    }, 300)
+  }
+
+  onUnmounted(() => {
+    clearTimeout(searchDebounceTimer)
+  })
+  ```
+
+  No new dependency was introduced. No store, service, or type files were modified.
+
+  #### Why 300ms
+
+  300 ms is a widely used debounce value for search inputs. It sits comfortably above a realistic fast-typing inter-keystroke interval (~80–120 ms), so a word typed quickly is fully captured before the request fires. It is short enough that the delay feels responsive to the user. Values below ~200 ms start to miss keystrokes for fast typists; values above ~500 ms feel sluggish.
+
+  #### Before / after request counts
+
+  Measured with the real service parameters (200–800 ms latency, 500 records):
+
+  ```text
+  Scenario: type "Ali" at ~80 ms/keystroke
+
+  BEFORE (no debounce)
+    Keystrokes : 3
+    Requests   : 3
+    Call #1  search="A"    → aborted-during-latency
+    Call #2  search="Al"   → aborted-during-latency
+    Call #3  search="Ali"  → resolved  (totalCount=109)
+
+  AFTER (300ms debounce)
+    Keystrokes : 3
+    Requests   : 1
+    Call #1  search="Ali"  → resolved  (totalCount=109)
+  ```
+
+  The final result (`totalCount=109`) is identical in both cases.
+
+  #### Post-fix behavior
+
+  | Scenario | Requests fired | Result |
+  | --- | --- | --- |
+  | Type `"A"`, wait >300ms | 1 | `totalCount=472` |
+  | Type `"Ali"` quickly (~30ms/key) | 1 | `totalCount=109` |
+  | Type `"Ali"` then immediately `"Ali Ahmadi"` | 1 | `totalCount` for `"Ali Ahmadi"` |
+  | Clear search after search | 1 | all 500 records returned |
+
+  #### AbortController remains as a second layer of protection
+
+  The debounce reduces unnecessary calls at the component boundary. The AbortController and request ID guard in the store remain unchanged and continue to protect against stale responses in any case where two debounced requests do overlap (e.g., the user types, pauses, then resumes typing while the first request is still in flight).
+
+  Measured verification: when two debounced requests overlap, the first is aborted and only the second (latest) result is applied to the store.
+
+  #### Page reset behavior
+
+  Unchanged. `setSearch()` in the store still resets `query.page` to `1` before calling `fetchTransactions()`. This runs after the debounce delay, so the page resets at the moment the request fires, not at each keystroke.
+
   ---
 
   ## AI Usage

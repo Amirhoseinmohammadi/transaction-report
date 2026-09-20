@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { useTransactionStore } from '@/stores/transaction.store'
@@ -26,8 +26,13 @@ function onNextPage() {
 const searchInput = ref('')
 const statusSelect = ref<TransactionQuery['status'] | ''>('')
 
+let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined
+
 function onSearch() {
-  transactionStore.setSearch(searchInput.value)
+  clearTimeout(searchDebounceTimer)
+  searchDebounceTimer = setTimeout(() => {
+    transactionStore.setSearch(searchInput.value)
+  }, 300)
 }
 
 function onStatusChange() {
@@ -47,6 +52,10 @@ function onToDateChange() {
 
 onMounted(() => {
   transactionStore.fetchTransactions()
+})
+
+onUnmounted(() => {
+  clearTimeout(searchDebounceTimer)
 })
 </script>
 
