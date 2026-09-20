@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { useTransactionStore } from '@/stores/transaction.store'
@@ -7,7 +7,21 @@ import type { TransactionQuery } from '@/types/transaction'
 
 const transactionStore = useTransactionStore()
 
-const { transactions, totalCount, loading, error } = storeToRefs(transactionStore)
+const { transactions, totalCount, loading, error, query } = storeToRefs(transactionStore)
+
+const totalPages = computed(() =>
+  Math.ceil(totalCount.value / query.value.pageSize),
+)
+
+const currentPage = computed(() => query.value.page)
+
+function onPrevPage() {
+  transactionStore.setPage(currentPage.value - 1)
+}
+
+function onNextPage() {
+  transactionStore.setPage(currentPage.value + 1)
+}
 
 const searchInput = ref('')
 const statusSelect = ref<TransactionQuery['status'] | ''>('')
@@ -96,6 +110,24 @@ onMounted(() => {
           {{ transaction.status }}
         </li>
       </ul>
+
+      <div>
+        <button
+          :disabled="currentPage <= 1"
+          @click="onPrevPage"
+        >
+          Previous
+        </button>
+
+        <span>Page {{ currentPage }} of {{ totalPages }}</span>
+
+        <button
+          :disabled="currentPage >= totalPages"
+          @click="onNextPage"
+        >
+          Next
+        </button>
+      </div>
     </template>
   </section>
 </template>
