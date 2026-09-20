@@ -20,6 +20,17 @@ function onStatusChange() {
   transactionStore.setStatus(statusSelect.value || undefined)
 }
 
+const fromDate = ref('')
+const toDate = ref('')
+
+function onFromDateChange() {
+  transactionStore.setFromDate(fromDate.value)
+}
+
+function onToDateChange() {
+  transactionStore.setToDate(toDate.value)
+}
+
 onMounted(() => {
   transactionStore.fetchTransactions()
 })
@@ -45,6 +56,24 @@ onMounted(() => {
       <option value="Failed">Failed</option>
       <option value="Pending">Pending</option>
     </select>
+
+    <label>
+      From
+      <input
+        v-model="fromDate"
+        type="date"
+        @change="onFromDateChange"
+      />
+    </label>
+
+    <label>
+      To
+      <input
+        v-model="toDate"
+        type="date"
+        @change="onToDateChange"
+      />
+    </label>
 
     <p v-if="loading">Loading...</p>
 

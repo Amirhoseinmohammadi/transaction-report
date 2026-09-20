@@ -26,7 +26,7 @@ The project uses a Mock API/Service because no real backend API was provided.
 | Pagination                               | Implemented                         |
 | Search                                   | Implemented                         |
 | Status filter                            | Implemented                         |
-| Date-range filter                        | Service implemented / UI pending    |
+| Date-range filter                        | Implemented                         |
 | `totalCount`                             | Implemented                         |
 | Network latency simulation               | Implemented                         |
 | Large dataset approach (page-only fetch) | Implemented                         |
@@ -231,6 +231,62 @@ Existing Search UI, loading, error, empty-state, request cancellation, and race-
 
 ---
 
+### Date Range Filter UI
+
+Two native date inputs are rendered in `TransactionList.vue` alongside the search input and status filter, connected directly to the store's `setFromDate()` and `setToDate()` actions.
+
+```vue
+<label>
+  From
+  <input
+    v-model="fromDate"
+    type="date"
+    @change="onFromDateChange"
+  />
+</label>
+
+<label>
+  To
+  <input
+    v-model="toDate"
+    type="date"
+    @change="onToDateChange"
+  />
+</label>
+```
+
+```ts
+const fromDate = ref('')
+const toDate = ref('')
+
+function onFromDateChange() {
+  transactionStore.setFromDate(fromDate.value)
+}
+
+function onToDateChange() {
+  transactionStore.setToDate(toDate.value)
+}
+```
+
+Clearing either input sets its value to `''`, which the service interprets as "no date constraint" for that boundary.
+
+`setFromDate()` and `setToDate()` in the store:
+
+1. Update `query.fromDate` or `query.toDate`.
+2. Reset `query.page` to `1` — so a date change on any page always returns results from page 1.
+3. Call `fetchTransactions()`, which goes through the Mock API/Service.
+
+No filtering is done inside the component. The service applies the date range filter:
+
+- `fromDate` is **inclusive** — the service sets `00:00:00.000` on the from boundary.
+- `toDate` is **inclusive** — the service sets `23:59:59.999` on the to boundary.
+
+Date filtering is applied before pagination, so `totalCount` always reflects the number of records that match all active filters (search, status, and date range combined).
+
+Loading, error, empty-state, request cancellation, and race-condition handling are entirely managed by the existing store — the Date Range Filter UI does not add any parallel logic for these.
+
+---
+
 ### Simulated Network Latency
 
 The service simulates a random delay between **200 ms and 800 ms** per request. The delay is intentionally variable to make concurrent-request scenarios visible during development.
@@ -295,6 +351,8 @@ The store exposes:
 | `setPage(page)`       | action | Updates page and refetches              |
 | `setSearch(search)`   | action | Resets to page 1 and refetches          |
 | `setStatus(status)`   | action | Resets to page 1 and refetches          |
+| `setFromDate(fromDate)` | action | Resets to page 1 and refetches        |
+| `setToDate(toDate)`   | action | Resets to page 1 and refetches          |
 
 `currentController` and `requestId` are **not** returned from the setup function and are therefore invisible to Vue's reactivity system and Pinia devtools.
 
@@ -336,7 +394,7 @@ The transaction store keeps only the currently requested page of transaction res
 - [x] Empty state foundation
 - [x] Search UI
 - [x] Status filter UI
-- [ ] Date-range filter UI
+- [x] Date-range filter UI
 - [ ] Pagination UI
 - [ ] Final loading / empty / error UX
 - [ ] Final performance and rendering review

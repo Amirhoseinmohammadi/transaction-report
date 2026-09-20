@@ -76,6 +76,18 @@ export const useTransactionStore = defineStore('transaction', () => {
     await fetchTransactions()
   }
 
+  async function setFromDate(fromDate: string) {
+    query.value.fromDate = fromDate
+    query.value.page = 1
+    await fetchTransactions()
+  }
+
+  async function setToDate(toDate: string) {
+    query.value.toDate = toDate
+    query.value.page = 1
+    await fetchTransactions()
+  }
+
   return {
     transactions,
     totalCount,
@@ -86,5 +98,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     setPage,
     setSearch,
     setStatus,
+    setFromDate,
+    setToDate,
   }
 })
