@@ -30,7 +30,7 @@
   | `totalCount`                             | Implemented                         |
   | Network latency simulation               | Implemented                         |
   | Large dataset approach (page-only fetch) | Implemented                         |
-  | Loading / Empty / Error states           | Basic foundation / final UX pending |
+  | Loading / Empty / Error states           | Implemented                         |
   | Concurrent request safety                | Implemented                         |
 
   ---
@@ -302,6 +302,45 @@
 
   ---
 
+  ### Loading / Empty / Error States
+
+  All three states are driven exclusively by the store's `loading`, `error`, and `totalCount` refs. The component contains no parallel logic.
+
+  #### Loading
+
+  While `loading` is `true` a `<p role="status" aria-live="polite">Loading...</p>` is shown. The error and results sections are behind `v-else-if` / `v-else`, so they are never rendered while a request is in progress.
+
+  #### Empty
+
+  When `loading` is `false`, `error` is `null`, and `totalCount === 0`, the component renders `<p role="status">No transactions found.</p>`. The transaction list and pagination controls are inside a nested `v-else` block that only renders when `totalCount > 0`, so they never appear alongside the empty message.
+
+  The empty state is reached correctly for:
+  - no filters + zero records in the dataset
+  - search with no matching customer name or card number
+  - status or date-range filter producing zero results
+  - any combination of the above
+
+  #### Error
+
+  When `loading` is `false` and `error` is a non-null string, a `<div role="alert">` is rendered containing the error message and a **Retry** button. The `v-else-if` placement guarantees that no stale transaction rows are visible in the error state.
+
+  The Retry button calls `transactionStore.fetchTransactions()` directly, which reuses the existing store/service flow (including request cancellation and race-condition protection) without duplicating any logic in the component.
+
+  #### State transitions verified
+
+  | Scenario                         | Observed result                                   |
+  | -------------------------------- | ------------------------------------------------- |
+  | Loading → Success                | Transactions render after loading clears          |
+  | Loading → Empty (search no-hit)  | "No transactions found." shown; pagination hidden |
+  | Loading → Error                  | Error message + Retry button shown; no stale rows |
+  | Error → Retry → Success          | Retry clears error; transactions reload           |
+  | Filter change while loading      | Previous request aborted; only latest result used |
+  | AbortError on fast filter change | Not shown as a user-facing error                  |
+  | Pagination                       | Page navigation still works; totalCount unchanged |
+  | Status + Search combined filter  | Correct empty state when combined result is zero  |
+
+  ---
+
   ### Simulated Network Latency
 
   The service simulates a random delay between **200 ms and 800 ms** per request. The delay is intentionally variable to make concurrent-request scenarios visible during development.
@@ -411,7 +450,7 @@
   - [x] Status filter UI
   - [x] Date-range filter UI
   - [x] Pagination UI
-  - [ ] Final loading / empty / error UX
+  - [x] Final loading / empty / error UX
   - [ ] Final performance and rendering review
 
   ### Documentation

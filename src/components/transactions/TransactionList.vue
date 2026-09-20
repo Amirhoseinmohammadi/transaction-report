@@ -89,45 +89,51 @@ onMounted(() => {
       />
     </label>
 
-    <p v-if="loading">Loading...</p>
+    <p v-if="loading" role="status" aria-live="polite">Loading...</p>
 
-    <p v-else-if="error">
-      {{ error }}
-    </p>
+    <div v-else-if="error" role="alert">
+      <p>{{ error }}</p>
+      <button type="button" @click="transactionStore.fetchTransactions()">Retry</button>
+    </div>
 
     <template v-else>
-      <p>{{ totalCount }} result(s)</p>
+      <p v-if="totalCount === 0" role="status">No transactions found.</p>
 
-      <ul>
-        <li
-          v-for="transaction in transactions"
-          :key="transaction.id"
-        >
-          {{ transaction.customerName }}
-          -
-          {{ transaction.amount }}
-          -
-          {{ transaction.status }}
-        </li>
-      </ul>
+      <template v-else>
+        <p>{{ totalCount }} result(s)</p>
 
-      <div>
-        <button
-          :disabled="currentPage <= 1"
-          @click="onPrevPage"
-        >
-          Previous
-        </button>
+        <ul>
+          <li
+            v-for="transaction in transactions"
+            :key="transaction.id"
+          >
+            {{ transaction.customerName }}
+            -
+            {{ transaction.amount }}
+            -
+            {{ transaction.status }}
+          </li>
+        </ul>
 
-        <span>Page {{ currentPage }} of {{ totalPages }}</span>
+        <div>
+          <button
+            :disabled="currentPage <= 1"
+            @click="onPrevPage"
+          >
+            Previous
+          </button>
 
-        <button
-          :disabled="currentPage >= totalPages"
-          @click="onNextPage"
-        >
-          Next
-        </button>
-      </div>
+          <span>Page {{ currentPage }} of {{ totalPages }}</span>
+
+          <button
+            :disabled="currentPage >= totalPages"
+            @click="onNextPage"
+          >
+            Next
+          </button>
+        </div>
+      </template>
     </template>
+
   </section>
 </template>
