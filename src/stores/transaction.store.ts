@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { ref } from 'vue'
 import type {
   Transaction,
   TransactionQuery,
@@ -7,60 +8,83 @@ import { MockTransactionService } from '@/services/transaction.service'
 
 const transactionService = new MockTransactionService()
 
-export const useTransactionStore = defineStore('transaction', {
-  state: () => ({
-    transactions: [] as Transaction[],
-    totalCount: 0,
-    loading: false,
-    error: null as string | null,
+export const useTransactionStore = defineStore('transaction', () => {
+  const transactions = ref<Transaction[]>([])
+  const totalCount = ref(0)
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+  const query = ref<TransactionQuery>({
+    page: 1,
+    pageSize: 10,
+    search: '',
+    status: undefined,
+    fromDate: '',
+    toDate: '',
+  })
+  
+  let currentController: AbortController | null = null
+  let requestId = 0
 
-    query: {
-      page: 1,
-      pageSize: 10,
-      search: '',
-      status: undefined,
-      fromDate: '',
-      toDate: '',
-    } as TransactionQuery,
-  }),
+  async function fetchTransactions() {
+    currentController?.abort()
+    currentController = new AbortController()
+    const { signal } = currentController
 
-  actions: {
-    async fetchTransactions() {
-      this.loading = true
-      this.error = null
+    const thisRequestId = ++requestId
 
-      try {
-        const response = await transactionService.getTransactions(
-          this.query,
-        )
+    loading.value = true
+    error.value = null
 
-        this.transactions = response.data
-        this.totalCount = response.totalCount
-      } catch (error) {
-        this.error =
-          error instanceof Error
-            ? error.message
-            : 'Failed to load transactions'
-      } finally {
-        this.loading = false
+    try {
+      const response = await transactionService.getTransactions(
+        query.value,
+        signal,
+      )
+
+      if (thisRequestId !== requestId) return
+
+      transactions.value = response.data
+      totalCount.value = response.totalCount
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
+
+      if (thisRequestId !== requestId) return
+
+      error.value =
+        err instanceof Error ? err.message : 'Failed to load transactions'
+    } finally {
+      if (thisRequestId === requestId) {
+        loading.value = false
       }
-    },
+    }
+  }
 
-    async setPage(page: number) {
-      this.query.page = page
-      await this.fetchTransactions()
-    },
+  async function setPage(page: number) {
+    query.value.page = page
+    await fetchTransactions()
+  }
 
-    async setSearch(search: string) {
-      this.query.search = search
-      this.query.page = 1
-      await this.fetchTransactions()
-    },
+  async function setSearch(search: string) {
+    query.value.search = search
+    query.value.page = 1
+    await fetchTransactions()
+  }
 
-    async setStatus(status: TransactionQuery['status']) {
-      this.query.status = status
-      this.query.page = 1
-      await this.fetchTransactions()
-    },
-  },
+  async function setStatus(status: TransactionQuery['status']) {
+    query.value.status = status
+    query.value.page = 1
+    await fetchTransactions()
+  }
+
+  return {
+    transactions,
+    totalCount,
+    loading,
+    error,
+    query,
+    fetchTransactions,
+    setPage,
+    setSearch,
+    setStatus,
+  }
 })
