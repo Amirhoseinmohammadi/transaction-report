@@ -25,7 +25,7 @@ The project uses a Mock API/Service because no real backend API was provided.
 | Mock API/Service                         | Implemented                         |
 | Pagination                               | Implemented                         |
 | Search                                   | Implemented                         |
-| Status filter                            | Service implemented / UI pending    |
+| Status filter                            | Implemented                         |
 | Date-range filter                        | Service implemented / UI pending    |
 | `totalCount`                             | Implemented                         |
 | Network latency simulation               | Implemented                         |
@@ -191,6 +191,46 @@ Loading, error, empty-state, and race-condition handling are entirely managed by
 
 ---
 
+### Status Filter UI
+
+A status dropdown is rendered in `TransactionList.vue` alongside the search input and connected directly to the store's `setStatus()` action.
+
+```vue
+<select
+  v-model="statusSelect"
+  @change="onStatusChange"
+>
+  <option value="">All</option>
+  <option value="Successful">Successful</option>
+  <option value="Failed">Failed</option>
+  <option value="Pending">Pending</option>
+</select>
+```
+
+```ts
+const statusSelect = ref<TransactionQuery['status'] | ''>('')
+
+function onStatusChange() {
+  transactionStore.setStatus(statusSelect.value || undefined)
+}
+```
+
+Selecting **All** sets `statusSelect` to `''`. The expression `statusSelect.value || undefined` converts the empty string to `undefined`, which clears the status filter so all statuses are returned.
+
+`setStatus()` in the store:
+
+1. Updates `query.status` (`undefined` when "All" is selected).
+2. Resets `query.page` to `1` — so a status change on any page always returns results from page 1.
+3. Calls `fetchTransactions()`, which goes through the Mock API/Service.
+
+No filtering is done inside the component. The service applies an exact match on `status` when the filter is set, recalculates `totalCount` for the filtered set, and returns only the records for the current page.
+
+`totalCount` updates with every status change response.
+
+Existing Search UI, loading, error, empty-state, request cancellation, and race-condition handling remain unchanged.
+
+---
+
 ### Simulated Network Latency
 
 The service simulates a random delay between **200 ms and 800 ms** per request. The delay is intentionally variable to make concurrent-request scenarios visible during development.
@@ -295,7 +335,7 @@ The transaction store keeps only the currently requested page of transaction res
 - [x] Error state foundation
 - [x] Empty state foundation
 - [x] Search UI
-- [ ] Status filter UI
+- [x] Status filter UI
 - [ ] Date-range filter UI
 - [ ] Pagination UI
 - [ ] Final loading / empty / error UX
