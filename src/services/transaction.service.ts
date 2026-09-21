@@ -3,8 +3,6 @@ import type {
   TransactionResponse,
 } from '@/types/transaction'
 
-import { transactions } from '@/mocks/transactions'
-
 export interface TransactionService {
   getTransactions(
     query: TransactionQuery,
@@ -12,88 +10,55 @@ export interface TransactionService {
   ): Promise<TransactionResponse>
 }
 
-function simulateLatency(
-  minMs: number,
-  maxMs: number,
-  signal?: AbortSignal,
-): Promise<void> {
-  const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs
+export class HttpTransactionService implements TransactionService {
+  private readonly baseUrl: string
 
-  return new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(resolve, delay)
+  constructor(baseUrl = '/api/transactions') {
+    this.baseUrl = baseUrl
+  }
 
-    if (signal) {
-      const onAbort = () => {
-        clearTimeout(timer)
-        reject(new DOMException('Request aborted', 'AbortError'))
-      }
-
-      if (signal.aborted) {
-        clearTimeout(timer)
-        reject(new DOMException('Request aborted', 'AbortError'))
-        return
-      }
-
-      signal.addEventListener('abort', onAbort, { once: true })
-    }
-  })
-}
-
-export class MockTransactionService implements TransactionService {
   async getTransactions(
     query: TransactionQuery,
     signal?: AbortSignal,
   ): Promise<TransactionResponse> {
-    if (signal?.aborted) {
-      throw new DOMException('Request aborted', 'AbortError')
-    }
+    const params = new URLSearchParams()
 
-    await simulateLatency(200, 800, signal)
-
-    let result = [...transactions]
+    params.set('page', String(query.page))
+    params.set('pageSize', String(query.pageSize))
 
     if (query.search) {
-      const search = query.search.toLowerCase()
-
-      result = result.filter(
-        (transaction) =>
-          transaction.customerName.toLowerCase().includes(search) ||
-          transaction.cardNumber.toLowerCase().includes(search),
-      )
+      params.set('search', query.search)
     }
 
     if (query.status) {
-      result = result.filter(
-        (transaction) => transaction.status === query.status,
-      )
+      params.set('status', query.status)
     }
 
     if (query.fromDate) {
-      const from = new Date(query.fromDate)
-      from.setHours(0, 0, 0, 0)
-      result = result.filter(
-        (transaction) => new Date(transaction.transactionDate) >= from,
-      )
+      params.set('fromDate', query.fromDate)
     }
 
     if (query.toDate) {
-      const to = new Date(query.toDate)
-      to.setHours(23, 59, 59, 999)
-      result = result.filter(
-        (transaction) => new Date(transaction.transactionDate) <= to,
-      )
+      params.set('toDate', query.toDate)
     }
 
-    const totalCount = result.length
+    const url = `${this.baseUrl}?${params.toString()}`
 
-    const start = (query.page - 1) * query.pageSize
-    const end = start + query.pageSize
+    const response = await fetch(url, { signal })
 
-    result = result.slice(start, end)
-
-    return {
-      data: result,
-      totalCount,
+    if (!response.ok) {
+      let errorMessage = `HTTP error ${response.status}: ${response.statusText}`
+      try {
+        const errorData = await response.json()
+        if (errorData && typeof errorData === 'object' && 'error' in errorData) {
+          errorMessage = String(errorData.error)
+        }
+      } catch {
+        // Fallback to HTTP status text if body is not JSON
+      }
+      throw new Error(errorMessage)
     }
+
+    return (await response.json()) as TransactionResponse
   }
 }

@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { useTransactionStore } from '@/stores/transaction.store'
+import { useRouteSync } from '@/composables/useRouteSync'
 import type { TransactionQuery } from '@/types/transaction'
 
 const transactionStore = useTransactionStore()
+useRouteSync()
 
 const { transactions, totalCount, loading, error, query } = storeToRefs(transactionStore)
 
@@ -23,10 +25,16 @@ function onNextPage() {
   transactionStore.setPage(currentPage.value + 1)
 }
 
-const searchInput = ref('')
-const statusSelect = ref<TransactionQuery['status'] | ''>('')
-
+const searchInput = ref(query.value.search ?? '')
 let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined
+
+watch(
+  () => query.value.search,
+  (newSearch) => {
+    clearTimeout(searchDebounceTimer)
+    searchInput.value = newSearch ?? ''
+  },
+)
 
 function onSearch() {
   clearTimeout(searchDebounceTimer)
@@ -35,24 +43,20 @@ function onSearch() {
   }, 300)
 }
 
-function onStatusChange() {
-  transactionStore.setStatus(statusSelect.value || undefined)
+function onStatusChange(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  transactionStore.setStatus((value as TransactionQuery['status']) || undefined)
 }
 
-const fromDate = ref('')
-const toDate = ref('')
-
-function onFromDateChange() {
-  transactionStore.setFromDate(fromDate.value)
+function onFromDateChange(event: Event) {
+  const value = (event.target as HTMLInputElement).value
+  transactionStore.setFromDate(value)
 }
 
-function onToDateChange() {
-  transactionStore.setToDate(toDate.value)
+function onToDateChange(event: Event) {
+  const value = (event.target as HTMLInputElement).value
+  transactionStore.setToDate(value)
 }
-
-onMounted(() => {
-  transactionStore.fetchTransactions()
-})
 
 onUnmounted(() => {
   clearTimeout(searchDebounceTimer)
@@ -71,7 +75,7 @@ onUnmounted(() => {
     />
 
     <select
-      v-model="statusSelect"
+      :value="query.status || ''"
       @change="onStatusChange"
     >
       <option value="">All</option>
@@ -83,7 +87,7 @@ onUnmounted(() => {
     <label>
       From
       <input
-        v-model="fromDate"
+        :value="query.fromDate || ''"
         type="date"
         @change="onFromDateChange"
       />
@@ -92,7 +96,7 @@ onUnmounted(() => {
     <label>
       To
       <input
-        v-model="toDate"
+        :value="query.toDate || ''"
         type="date"
         @change="onToDateChange"
       />
@@ -143,6 +147,5 @@ onUnmounted(() => {
         </div>
       </template>
     </template>
-
   </section>
 </template>

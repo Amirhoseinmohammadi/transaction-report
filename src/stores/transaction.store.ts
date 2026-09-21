@@ -4,9 +4,9 @@ import type {
   Transaction,
   TransactionQuery,
 } from '@/types/transaction'
-import { MockTransactionService } from '@/services/transaction.service'
+import { HttpTransactionService } from '@/services/transaction.service'
 
-const transactionService = new MockTransactionService()
+const transactionService = new HttpTransactionService()
 
 export const useTransactionStore = defineStore('transaction', () => {
   const transactions = ref<Transaction[]>([])
