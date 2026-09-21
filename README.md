@@ -2,26 +2,32 @@
 
 A Vue 3 + TypeScript transaction reporting page built as a frontend technical evaluation.
 
-The project uses a Mock HTTP API because no real backend was provided. The implementation focuses on server-side-like filtering and pagination, request cancellation, URL state synchronization, and performance.
+The project uses a Mock HTTP API because no real backend was provided. The implementation focuses on a production-like admin UI, server-side-like filtering and pagination, request cancellation, URL state synchronization, and performance.
 
 ## Features
 
-* 500+ mock transaction records
-* HTTP Mock API with simulated network latency
-* Server-side-like:
-
-  * Pagination
-  * Search
-  * Status filtering
-  * Date-range filtering
-* `totalCount` calculated before pagination
-* Loading, empty, error, and retry states
-* Request cancellation with `AbortController`
-* Race-condition protection with request IDs
-* URL synchronization for filters and pagination
-* Browser Back / Forward support
-* 300ms search debounce
-* Accessibility attributes for loading and error states
+* **Transaction Reports UI**: Clean, responsive admin dashboard layout with visual hierarchy and light/dark theme support.
+* **Transaction Table**: Semantic, horizontally scrollable data table with hover states, row borders, and column alignment.
+* **Transaction Formatting**:
+  * Amounts formatted with currency/comma separators and right-aligned tabular numerals.
+  * Human-readable date and time formatting (`MMM DD, YYYY, HH:mm`).
+  * Masked card numbers (`6037 •••• •••• 1000`).
+  * Distinct status badges for `Successful`, `Failed`, and `Pending` transactions.
+* **Filter Toolbar**:
+  * 300ms debounced search by customer name or card number.
+  * Status dropdown (`All`, `Successful`, `Failed`, `Pending`).
+  * Date-range filters (`From Date`, `To Date`).
+  * Accessible labels, unique IDs, and focus rings.
+* **Pagination**: Server-side pagination with Previous/Next controls, page counts, and boundary button disabling.
+* **State Feedback**:
+  * Pure CSS skeleton table loading state with shimmer animation.
+  * Informative empty state with filter-adjustment guidance.
+  * Distinct error state banner with Retry action.
+* **Request Cancellation & Protection**:
+  * In-flight request cancellation using native `AbortController`.
+  * Race-condition guard using request IDs to prevent stale responses.
+* **URL State Synchronization**: Query params sync with browser URL and support Back/Forward history navigation.
+* **Mock HTTP API**: 500+ records with simulated network latency (200–800ms) and deterministic error testing (`mockError=true`).
 
 ## Tech Stack
 
@@ -73,21 +79,23 @@ src/
 ├── types/
 │   └── transaction.ts
 ├── utils/
+│   ├── formatters.ts
 │   └── queryParams.ts
 ├── App.vue
-└── main.ts
+├── main.ts
+└── style.css
 ```
 
 ### Responsibilities
 
 | Layer               | Responsibility                                       |
 | ------------------- | ---------------------------------------------------- |
-| Components          | UI, filters, table, pagination and user interaction  |
+| Components          | UI, filters, table, states, and pagination controls  |
 | Store               | Application state, query state and request lifecycle |
 | Service             | HTTP data access and error handling                  |
 | Mock API            | Filtering, pagination, latency and error simulation  |
 | Router / Composable | URL ↔ Pinia state synchronization                    |
-| Utils               | Query parameter parsing, building and comparison     |
+| Utils               | Formatters (amount, date, card) and query params     |
 | Types               | Shared TypeScript contracts                          |
 
 Pinia is the single source of truth for transaction data and query state.
@@ -253,26 +261,29 @@ The fix reduces unnecessary network activity while preserving responsive search 
 * Retry performs a normal request again.
 * Back / Forward restores both data and visible filter controls.
 * The frontend only renders the current page.
+* Table wraps with horizontal scroll on smaller viewports.
 
 ## Assignment Requirements
 
-| Requirement                     | Status |
-| ------------------------------- | ------ |
-| 500+ mock records               | ✅      |
-| Mock API / Service              | ✅      |
-| Pagination                      | ✅      |
-| Search                          | ✅      |
-| Status filter                   | ✅      |
-| Date-range filter               | ✅      |
-| `totalCount`                    | ✅      |
-| Simulated network latency       | ✅      |
-| Error simulation                | ✅      |
-| Page-only data fetching         | ✅      |
-| Loading / Empty / Error states  | ✅      |
-| Request cancellation            | ✅      |
-| Race-condition protection       | ✅      |
-| URL state synchronization       | ✅      |
-| Performance issue investigation | ✅      |
+| Requirement                       | Status |
+| --------------------------------- | ------ |
+| 500+ mock records                 | ✅      |
+| Mock API / Service                | ✅      |
+| Pagination                        | ✅      |
+| Search with debounce              | ✅      |
+| Status filter                     | ✅      |
+| Date-range filter                 | ✅      |
+| `totalCount` calculation          | ✅      |
+| Simulated network latency         | ✅      |
+| Error simulation (`mockError`)    | ✅      |
+| Page-only data fetching           | ✅      |
+| Loading / Empty / Error states    | ✅      |
+| Transaction Reports UI & Table    | ✅      |
+| Transaction data formatting       | ✅      |
+| Request cancellation              | ✅      |
+| Race-condition protection         | ✅      |
+| URL state synchronization         | ✅      |
+| Performance issue investigation   | ✅      |
 
 ## Verification
 
@@ -288,7 +299,7 @@ and:
 git diff --check
 ```
 
-Both completed successfully during implementation review.
+Both completed successfully with zero TypeScript, build, or formatting errors.
 
 Manual scenarios to verify before final submission:
 
