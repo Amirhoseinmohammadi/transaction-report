@@ -150,13 +150,13 @@ Therefore, the frontend never loads all 500+ records at once.
 
 Responses have a simulated latency of **200–800ms**.
 
-For deterministic error testing:
+For deterministic error testing, open the application with `mockError=true`:
 
 ```text
-/api/transactions?mockError=true
+/transactions?mockError=true
 ```
 
-returns HTTP 500. The UI displays the error state and provides a Retry action.
+This sends `mockError=true` to `/api/transactions?mockError=true`, returning HTTP 500. The UI displays the error state banner and provides a Retry action that preserves the `mockError=true` query state.
 
 ## Request Cancellation
 

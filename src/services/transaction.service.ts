@@ -42,6 +42,10 @@ export class HttpTransactionService implements TransactionService {
       params.set('toDate', query.toDate)
     }
 
+    if (query.mockError) {
+      params.set('mockError', 'true')
+    }
+
     const url = `${this.baseUrl}?${params.toString()}`
 
     const response = await fetch(url, { signal })

@@ -53,6 +53,11 @@ export function parseQueryParams(
     result.page = Number.isFinite(page) && page >= 1 ? page : 1
   }
 
+  const mockError = get('mockError')
+  if (mockError === 'true' || mockError === '1') {
+    result.mockError = true
+  }
+
   return result
 }
 
@@ -66,6 +71,7 @@ export function buildQueryParams(
   if (query.fromDate) params.fromDate = query.fromDate
   if (query.toDate) params.toDate = query.toDate
   if (query.page > 1) params.page = String(query.page)
+  if (query.mockError) params.mockError = 'true'
 
   return params
 }

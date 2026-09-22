@@ -17,6 +17,7 @@ export function useRouteSync() {
       status: parsed.status,
       fromDate: parsed.fromDate,
       toDate: parsed.toDate,
+      mockError: parsed.mockError,
     })
   }
 
@@ -26,6 +27,7 @@ export function useRouteSync() {
   if (initialParams.fromDate !== undefined) store.query.fromDate = initialParams.fromDate
   if (initialParams.toDate !== undefined) store.query.toDate = initialParams.toDate
   if (initialParams.page !== undefined) store.query.page = initialParams.page
+  if (initialParams.mockError !== undefined) store.query.mockError = initialParams.mockError
 
   store.fetchTransactions()
 
@@ -43,7 +45,8 @@ export function useRouteSync() {
         newQuery.search !== oldQuery.search ||
         newQuery.status !== oldQuery.status ||
         newQuery.fromDate !== oldQuery.fromDate ||
-        newQuery.toDate !== oldQuery.toDate
+        newQuery.toDate !== oldQuery.toDate ||
+        newQuery.mockError !== oldQuery.mockError
 
       if (pageChanged && !filtersChanged) {
         router.push({ query: newParams })
@@ -67,6 +70,7 @@ export function useRouteSync() {
       store.query.fromDate = parsed.fromDate ?? ''
       store.query.toDate = parsed.toDate ?? ''
       store.query.page = parsed.page ?? 1
+      store.query.mockError = parsed.mockError
 
       store.fetchTransactions()
     },

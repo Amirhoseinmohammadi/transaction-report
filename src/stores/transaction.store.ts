@@ -20,6 +20,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     status: undefined,
     fromDate: '',
     toDate: '',
+    mockError: undefined,
   })
   
   let currentController: AbortController | null = null

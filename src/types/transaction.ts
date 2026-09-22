@@ -16,6 +16,7 @@ export interface TransactionQuery {
   status?: TransactionStatus
   fromDate?: string
   toDate?: string
+  mockError?: boolean
 }
 
 export interface TransactionResponse {
